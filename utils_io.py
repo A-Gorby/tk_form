@@ -27,6 +27,7 @@ import argparse
 import warnings
 warnings.filterwarnings("ignore")
 
+import openpyxl
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.comments import Comment
@@ -264,3 +265,15 @@ def rewrite_excel_by_df(
     format_excel_sheet_cols(data_processed_dir, fn_save, cols_width_new, f"{sheet_name}_STS")
 
     return fn_save
+
+def rename_sheet(path, fn, sheet_old, sheet_new):
+    try:
+        wb=openpyxl.load_workbook(os.path.join(path, fn))
+        try:
+            sheet = wb[sheet_old]
+            sheet.title = sheet_new
+            wb.save(os.path.join(path, fn))
+        except Exception as err:
+            print(f"В файле нет листа: '{sheet_old}'")
+    except Exception as err:
+            print(f"{str(err)}")

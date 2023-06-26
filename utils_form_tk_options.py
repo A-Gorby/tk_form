@@ -25,6 +25,7 @@ import argparse
 import warnings
 warnings.filterwarnings("ignore")
 
+import openpyxl
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.comments import Comment
@@ -40,7 +41,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
 from utils_form_tk_enrichment_options import preprocess_tkbd_options
-from utils_io import save_df_lst_to_excel
+from utils_io import save_df_lst_to_excel, rename_sheet, form_str_date
 from utils_io import logger
 
 if len(logger.handlers) > 1:
@@ -143,69 +144,6 @@ def reorder_columns_by_models(new_columns_02, model_names):
         else: return new_columns_02
     else: return new_columns_02
 
-# def simplify_multi_index (df_p, tk_names, model_names):
-#     '''
-#     on enter pdDataFrame with columns
-#     MultiIndex([('count',  'Техкарта БА КС база.xlsx'), ('count', 'Техкарта БА КС техно.xlsx')], names=[None, 'Файл Excel'])
-#     '''
-#     pp_lst = []
-#     df_pp = df_p.reset_index()
-#     for i_row, row in df_pp.iterrows():
-#         pp_lst.append(row.values)
-#     # print(pp_lst[:2])
-#     cur_columns = list(df_pp.columns)
-#     # cur_columns: [('Код раздела', ''), ('count', 'Техкарта БА КС база.xlsx'), ('count', 'Техкарта БА КС техно.xlsx')]
-#     # print("cur_columns:", cur_columns)
-#     new_columns = [v[0] if i_v in [0,3] else v[1] for i_v, v in enumerate(cur_columns)]
-#     # print("new_columns:", new_columns)
-#     cur_columns_02 = list(df_pp.columns[1:3])
-#     # print("cur_columns_02:", cur_columns_02)
-#     # new_columns_02 = ['База' if (str(col[1])==tk_names[0]) else 'Техно' for col in cur_columns_02]
-#     new_columns_02 = [model_names[0] if (str(col[1])==tk_names[0]) else model_names[1] for col in cur_columns_02]
-#     new_columns_02 = [new_columns[0]] + new_columns_02 # + [new_columns[-1]] #+ code_names_columns
-#     # print("new_columns_02:", new_columns_02)
-
-#     df_pp = pd.DataFrame(pp_lst, columns = new_columns_02)
-#     # new_columns_03 = change_order_base_techno(new_columns_02)
-#     new_columns_03 = reorder_columns_by_models(new_columns_02, model_names)
-#     # print(f"new_columns_03: {new_columns_03}")
-#     df_pp = df_pp[new_columns_03]
-
-#     return df_pp
-
-
-
-# def simplify_multi_index_02 (df_p, tk_names, model_names):
-# # def simpl_multi_index_02 (df_p, tk_names, model_names):
-#     '''
-#     on enter pdDataFrame with columns
-#     MultiIndex([('count',  'Техкарта БА КС база.xlsx'), ('count', 'Техкарта БА КС техно.xlsx')], names=[None, 'Файл Excel'])
-#     '''
-#     pp_lst = []
-#     df_pp = df_p.reset_index()
-#     for i_row, row in df_pp.iterrows():
-#         pp_lst.append(row.values)
-#     # print(pp_lst[:2])
-#     cur_columns = list(df_pp.columns)
-#     # print("cur_columns:", cur_columns)
-#     new_columns = [v[0] if i_v in [0] else v[-1] for i_v, v in enumerate(cur_columns)]
-#     # new_columns = [v[0]  for i_v, v in enumerate(cur_columns[:3])]
-#     # print("new_columns:", new_columns)
-#     # cur_columns_02 = list(df_pp.columns[1:3])
-#     # print("cur_columns_02:", cur_columns_02)
-#     # new_columns_02 = ['База' if (str(col[1])==tk_names[0]) else 'Техно' for col in cur_columns_02]
-#     new_columns_02 = [model_names[0] if (str(col)==tk_names[0]) else model_names[1] for col in new_columns[1:]]
-#     new_columns_02 = [new_columns[0]] + new_columns_02
-#     # print("new_columns_02:", new_columns_02)
-
-#     df_pp = pd.DataFrame(pp_lst, columns = new_columns_02)
-#     # new_columns_03 = change_order_base_techno(new_columns_02)
-#     new_columns_03 = reorder_columns_by_models(new_columns_02, model_names)
-#     df_pp = df_pp[new_columns_03]
-
-#     return df_pp
-
-
 def extract_names_from_code_service(code, debug=False):
     section_name, type_name, class_name = None, None, None
     if (type(code)!= str) or ((type(code)==str) and (len(code)==0)): return section_name, type_name, class_name
@@ -225,116 +163,7 @@ def extract_names_from_code_service(code, debug=False):
     return section_name, type_name, class_name
 
 
-def services_analysis_02(
-    df_services, tk_names, model_names, tk_code_name,
-    path_tk_models_processed,
-    analysis_subpart_code, analysis_subpart,
-    indicator_col_name = 'Усредненная частота предоставления',
-    agg_type = 'Среднее',
 
-    ):
-
-    codes_columns_services = ['Код раздела', 'Код типа', 'Код класса']
-    code_names_columns_services = ['Раздел', 'Тип', 'Класс']
-    services_mask_base = df_services['Файл Excel'] == tk_names[0]
-    services_mask_techno = df_services['Файл Excel'] == tk_names[1]
-    df_a = df_services[services_mask_base | services_mask_techno]
-    # tk_name, model, analysis_part, analysis_part_code = 'Нейрохирургия',  'База', 'Услуги', 1
-    # tk_name, model, analysis_part, analysis_part_code = tk_code_name,  'База', 'Услуги', 1
-    # dictionaries_lst = [sevice_sections, (service_types_A, service_types_B), (service_classes_A, service_classes_B) ]
-    diff_lst = []
-    diff_df_services = []
-    # code_names_columns_services = ['Раздел', 'Тип', 'Класс']
-    n_bars_max_on_picture = 20
-    # from matplotlib.colors import ListedColormap, BoundaryNorm
-    colors=["#9b59b6", "#3498db", "#95a5a6", "#e74c3c", "#34495e", "#2ecc71"]
-    cmap = ListedColormap(["#95a5a6", "#2ecc71"])
-
-    for i_col, col_name in enumerate(codes_columns_services):
-        diff_lst.append([])
-        if agg_type == 'Среднее':
-            df_p = df_a.groupby( ['Файл Excel', col_name, ] ).agg({indicator_col_name: ['mean']})\
-                        .reset_index().pivot([col_name], ['Файл Excel'] ).fillna(0)
-        elif agg_type == 'Сумма':
-            df_p = df_a.groupby( ['Файл Excel', col_name, ] ).agg({indicator_col_name: ['sum']})\
-                        .reset_index().pivot([col_name], ['Файл Excel'] ).fillna(0)
-        # print(df_p.columns)
-        # display(df_p.head(2))
-        df_pp = simplify_multi_index_02 (df_p, tk_names, model_names)
-        # df_pp = simpl_multi_index_02 (df_p, tk_names, model_names)
-        # display(df_pp.head(2))
-        kind = 'bar' #'kde' #'area' #'bar'
-        title = '\n'.join([tk_code_name, 'Услуги', analysis_subpart]) #, indicator_col_name]) #, col_name])
-        y_lim_min = 0
-
-        print("!!! df_pp.shape[0]:", df_pp.shape[0])
-        flag_pic_plotted = False
-        if df_pp.shape[0] <= n_bars_max_on_picture:
-            plt.figure(figsize=(25, 6), tight_layout=True)
-            try:
-                ax1 = df_pp.plot(kind= kind, x = col_name, rot=45, cmap = cmap)
-                flag_pic_plotted = True
-            except Exception as err:
-                logger.error("!!! Ошибка данных")
-                logger.error(f"{str(err)}")
-                display(df_pp)
-        else:
-            plt.figure(figsize=(25, 10), tight_layout=True)
-            try:
-                max_v = max(df_pp[model_names[0]].max(), df_pp[model_names[1]].max())
-                min_v = min(df_pp[model_names[0]].min(), df_pp[model_names[1]].min())
-                try:
-                    delta_v = (max_v - min_v)/10
-                    for i_max in range(10):
-                        # df_pp1 = df_pp[(df_pp['База']>=y_lim_min + i_max) | (df_pp['Техно']>=y_lim_min + i_max)]
-
-                        df_pp1 = df_pp[(df_pp[model_names[0]]>=y_lim_min + i_max*delta_v) | (df_pp[model_names[1]]>=y_lim_min + i_max*delta_v)]
-
-                        if df_pp1.shape[0] <= n_bars_max_on_picture:
-                            print(f"i_max: {i_max}, df_pp1.shape[0]: {df_pp1.shape[0]}")
-                            ax1 = df_pp1.plot(kind= kind, x = col_name, rot=45, cmap = cmap) #, y_lim= (y_lim_min + i_max,100))
-                            flag_pic_plotted = True
-                            break
-                except Exception as err:
-                    logger.error("!!! Ошибка данных")
-                    logger.error(f"{str(err)}")
-                    display(df_pp)
-            except Exception as err:
-                print(str(err))
-                try:
-                    ax1 = df_pp.plot(kind= kind, x = col_name, rot=45, cmap = cmap)
-                except Exception as err:
-                    logger.error("!!! Ошибка данных")
-                    logger.error(f"{str(err)}")
-                    display(df_pp)
-        legend_list = model_names
-        if flag_pic_plotted:
-            ax1.legend(legend_list, loc='best',fontsize=8)
-            plt.title(title, fontsize=8)
-            plt.xticks(fontsize=8)
-            plt.yticks(fontsize=8)
-            plt.xlabel(col_name, fontsize=8)
-            # plt.ylabel('Количество', fontsize=8)
-            plt.ylabel(agg_type, fontsize=8)
-
-            # fn_img = f"{analysis_part_code:02d}_{analysis_part}_{i_col:02d}.jpg"
-            fn_img = f"01_Услуги_{analysis_subpart_code:02d}_{analysis_subpart}_{i_col:02d}.jpg" #.replace(' ','_')
-
-            # plt.savefig(os.path.join(path_tk_models_processed, tk_code_name, fn_img), bbox_inches='tight')
-            plt.savefig(os.path.join(path_tk_models_processed, tk_code_name, 'img', fn_img), bbox_inches='tight')
-            # plt.savefig(path_tk_models_processed + tk_code_name + '/' + fn_img, bbox_inches='tight')
-            plt.show()
-        try:
-            diff_df_services.append(def_differencies(
-                                 df_pp, tk_names, model_names,
-                                 code_names_columns = code_names_columns_services,
-                                 function_extract_names = extract_names_from_code_service))
-            display(diff_df_services[i_col])
-        except Exception as err:
-            diff_df_services.append(None)
-            logger.error(str(err))
-            logger.error(f"Данные анализа об отличиях не выводятся из-за некорректных входных данных")
-    return diff_df_services
 
 def extract_name_groups_ATH(s, debug = False):
     ath_anatomy_code, ath_anatomy, ath_therapy_code, ath_therapy, ath_pharm_code, ath_pharm, ath_chemical_code, ath_chemical = \
@@ -355,90 +184,11 @@ def extract_name_groups_ATH(s, debug = False):
     return ath_anatomy, ath_therapy, ath_pharm, ath_chemical
 
 
-# def update_excel_by_analysis_02_options(
-#     diff_df_services_02, diff_LP_df_02,
-#     path_tk_models_processed, tk_code_name, fn_TK_save,
-#     cmp_sections
-#     ):
-
-#     wb = load_workbook(os.path.join(path_tk_models_processed, tk_code_name, fn_TK_save))
-#     # tk_name, model, analysis_part, analysis_part_code = 'Нейрохирургия',  'База', 'Услуги', 1
-#     if len(diff_df_services_02)==0: diff_df_services_02 = None
-#     if len(diff_LP_df_02)==0: diff_LP_df_02 = None
-
-#     df_diff = [diff_df_services_02, diff_LP_df_02, None]
-#     cols_width_analysis = [[10,7,7,7,30,30,30], [10,7,7,7,30,30,30,30], None]
-#     interval_row = 1
-#     analysis_subpart_lst = [ [(2, 'Частота'), (3, 'Кратность'), (4, 'УЕТ 1'), (5, 'УЕТ 2')],
-#                              [(2, 'Частота'), (3, 'Кратность'), (4, 'Количество')]
-#     ]
-#     for i_p, analysis_part in enumerate(['Услуги', 'ЛП']): #, 'РМ']):
-#         if analysis_part in cmp_sections:
-#             for i_sp, (analysis_subpart_code, analysis_subpart) in enumerate(analysis_subpart_lst[i_p]):
-#                 fn_img_lst = glob.glob(os.path.join(
-#                     path_tk_models_processed, tk_code_name, 'img') + f"/{i_p+1:02d}_{analysis_part}_{analysis_subpart_code:02d}_{analysis_subpart}*.jpg")
-#                     # path_tk_models_processed, tk_code_name) + f"/{i_p+1:02d}_{analysis_part}_{analysis_subpart_code:02d}_{analysis_subpart}*.jpg")
-#                     # path_tk_models_processed, tk_code_name) + f"/{i_p+1:02d}_{analysis_part}_{i_sp:02d}_{analysis_subpart.replace(' ', '_')}*.jpg")
-#                 print("fn_img_lst:", len(fn_img_lst), fn_img_lst)
-#                 sheet_name = analysis_part + '_Анализ_' + analysis_subpart #.replace(' ', '_')
-#                 sheet_names = wb.get_sheet_names()
-#                 if sheet_name in sheet_names:
-#                     # wb.remove_sheet(sheet_name)
-#                     wb.remove(wb[sheet_name])
-#                 wb.create_sheet(sheet_name)
-#                 ws = wb[sheet_name]
-#                 if cols_width_analysis[i_p] is not None:
-#                     ws = format_excel_cols_short(ws, cols_width_analysis[i_p], auto_filter=False)
-#                 # cell = ws['A1']
-#                 # font_size = cell.font.sz
-#                 cell_height = 20 # опытным путем
-#                 cell_height = 17 # опытным путем
-
-#                 images_total_height = 0
-#                 images_total_rows = 0
-#                 explain_rows = 0
-#                 interval_rows = 0
-
-#                 for i_f, fn_img in enumerate(fn_img_lst):
-#                     img = drawing.image.Image(fn_img)
-#                     anchor = f"A{images_total_rows + explain_rows+1}"
-#                     ws.add_image(img, anchor)
-#                     # img_rows = int(img.height//cell_height   + 1) # + interval_row
-#                     img_rows = img.height//cell_height   + 1 + 2*interval_row
-#                     images_total_rows += img_rows
-#                     for _ in range(img_rows): ws.append([None])
-
-#                     if df_diff[i_p] is not None:
-#                         # cell = ws[anchor]
-#                         # print(f"i_p: {i_p}, len(df_diff[i_p]):", len(df_diff[i_p]))
-#                         if df_diff[i_p][i_sp] is not None:
-#                         # if df_diff[i_p][i_f] is not None:
-#                             try:
-#                                 # ws.append(list(df_diff[i_p][i_f].columns))
-#                                 # for i_row, row in df_diff[i_p][i_f].iterrows():
-#                                 ws.append(list(df_diff[i_p][i_sp][i_f].columns))
-#                                 for i_row, row in df_diff[i_p][i_sp][i_f].iterrows():
-#                                     ws.append(list(row.values))
-#                                 explain_rows += df_diff[i_p][i_sp][i_f].shape[0] + 1 + 2*interval_row
-#                             except Exception as err:
-#                                 print(err)
-#                                 # print(type(df_diff[i_p][i_f]), df_diff[i_p][i_f])
-#                         else:
-#                             for i_row, row in range(2*interval_row):
-#                                 ws.append([None])
-#                             explain_rows += 2*interval_row
-
-#             # print(img.height, img_rows, images_total_rows, explain_rows)
-
-#     wb.save(os.path.join(path_tk_models_processed, tk_code_name, fn_TK_save))
-#     logger.info(f"Файл '{fn_TK_save}' дополнен данными анализа и сохранен в '{os.path.join(path_tk_models_processed, tk_code_name)}'")
-
-
 
 
 # import pandas as pd
 from utils_form_tk_enrichment_options import preprocess_tkbd_options
-from utils_io import form_str_date, format_excel_sheet_cols, add_sheet_to_excel_from_df
+from utils_io import form_str_date, format_excel_sheet_cols, add_sheet_to_excel_from_df, save_df_lst_to_excel
 
 def group_services(df_services, freq_threshold, group_code_col ='Код типа', group_name_col='Тип'):
 
@@ -455,6 +205,13 @@ def group_services(df_services, freq_threshold, group_code_col ='Код типа
     df_g_services1 = df_services[df_services[freq_col]>=freq_threshold]
     df_g_services2 = df_services[df_services[freq_col]<freq_threshold]
     print(df_services.shape, df_g_services1.shape, df_g_services2.shape)
+    total_source_positions = df_services.shape[0]
+    total_positions_ge = df_g_services1.shape[0]   # (greater|equal)
+    total_positions_less = df_g_services2.shape[0]
+    logger.info(f"Исходное количество позиций: {total_source_positions}")
+    logger.info(f"Позиций >= порога: {total_positions_ge}")
+    logger.info(f"Позиций < порога: {total_positions_less}")
+
     # display(df_g_services2.groupby(group_col).sum(freq_col))
     # display(df_g_services2[list(df_g_services1.columns)].groupby(group_col).sum(freq_col).reset_index().head())
     groupby_cols = head_cols + [group_code_col, group_name_col]
@@ -473,17 +230,94 @@ def group_services(df_services, freq_threshold, group_code_col ='Код типа
 
     df_g_services = df_g_services[head_cols + [code_col, name_col, freq_col, multi_col]]
     df_g_services = df_g_services.sort_values(by=[code_col], ascending=True)
+    total_proc_positions = df_g_services.shape[0]
+    logger.info(f"Итоговое количество позиций: {total_proc_positions}")
     print(df_g_services.shape)
 
-    return df_g_services
+    return df_g_services, total_source_positions, total_positions_ge, total_positions_less, total_proc_positions
+
+def group_services_02(df_services, freq_threshold, group_code_col ='Код типа', group_name_col='Тип'):
+
+    code_col = 'Код услуги по Номенклатуре медицинских услуг (Приказ МЗ № 804н)'
+    name_col = 'Наименование услуги по Номенклатуре медицинских услуг (Приказ МЗ №804н)'
+    freq_col = 'Усредненная частота предоставления'
+    multi_col = 'Усредненная кратность применения'
+    head_cols = ['Профиль', 'Код ТК', 'Наименование ТК', 'Модель пациента', 'Файл Excel']
+    main_cols = ['Код услуги по Номенклатуре медицинских услуг (Приказ МЗ № 804н)',
+       'Наименование услуги по Номенклатуре медицинских услуг (Приказ МЗ №804н)',
+       freq_col, multi_col, ] #, 'Код раздела', 'Раздел', 'Код типа'
+
+    df_g_services1 = df_services[df_services[freq_col]>=freq_threshold]
+    df_g_services2 = df_services[df_services[freq_col]<freq_threshold]
+    print(df_services.shape, df_g_services1.shape, df_g_services2.shape)
+    total_source_positions = df_services.shape[0]
+    total_positions_ge = df_g_services1.shape[0]   # (greater|equal)
+    total_positions_less = df_g_services2.shape[0]
+    logger.info(f"Исходное количество позиций: {total_source_positions}")
+    logger.info(f"Позиций >= порога: {total_positions_ge}")
+    logger.info(f"Позиций < порога: {total_positions_less}")
+
+    # display(df_g_services2.groupby(group_col).sum(freq_col))
+    # display(df_g_services2[list(df_g_services1.columns)].groupby(group_col).sum(freq_col).reset_index().head())
+    groupby_cols = head_cols + [group_code_col, group_name_col]
+    # df_g_services2_g = df_g_services2[ groupby_cols + [freq_col, multi_col]
+    #                                   ].groupby(groupby_cols).agg({freq_col: 'sum', multi_col: 'mean'}).reset_index()
+    df_g_services2_g = df_g_services2[ groupby_cols + [freq_col, multi_col]].groupby(groupby_cols)
+    # df_g_services2_g_ri= df_g_services2_g.reset_index()
+    lst_by_group = []
+    head_values = list(df_g_services2[head_cols].values[0])
+    # print("head_values:", head_values)
+    for ig, (group_name, group_df) in enumerate(df_g_services2_g):
+
+        # print(group_name)
+        # display(group_df.head(2))
+        freq_sum = group_df.groupby(groupby_cols)[[freq_col]].sum(freq_col).values[0,0]
+        # print("freq_sum:", freq_sum)
+        if freq_sum!=0:
+            group_df['freq_weight'] = group_df[freq_col]/freq_sum
+        else: group_df['freq_weight'] = 0
+        group_df['multi_weight'] = group_df['freq_weight']*group_df[multi_col]
+        multi_avg = group_df['multi_weight'].sum()
+        # print(f"freq_sum: {freq_sum}, multi_avg: {multi_avg}")
+
+        # if ig>1: sys.exit(2)
+        code_g = group_df[group_code_col].values[0]
+        code_g = code_g + ('.AA' if code_g.startswith('A') else '.BBB')
+        name_g = group_df[group_name_col].values[0].capitalize() + '.*'
+        # print(f"code_g: {code_g}, name_g: {name_g}")
+        lst_by_group.append(head_values + [code_g, name_g, freq_sum, multi_avg])
+
+    # # print("df_g_services1.columns:", df_g_services1.columns)
+    # # print(df_g_services2_g.shape)
+    # # display(df_g_services2_g.head(2))
+    # df_g_services2_g.drop(columns= [group_code_col, group_name_col], inplace=True)
+    df_g_services2_g = pd.DataFrame(lst_by_group, columns = head_cols + [code_col, name_col, freq_col, multi_col])
+    # display(df_g_services2_g.head(1))
+    df_g_services = pd.concat([df_g_services1[list(df_g_services2_g.columns)], df_g_services2_g])
+
+    df_g_services = df_g_services[head_cols + [code_col, name_col, freq_col, multi_col]]
+    df_g_services = df_g_services.sort_values(by=[code_col], ascending=True)
+    total_proc_positions = df_g_services.shape[0]
+    logger.info(f"Итоговое количество позиций: {total_proc_positions}")
+    # print(df_g_services.shape)
+
+    return df_g_services, total_source_positions, total_positions_ge, total_positions_less, total_proc_positions
 
 def group_items(df_services, df_LP, df_RM,
         freq_threshold,
 ):
     df_g_services, df_g_LP, df_g_RM = None, None, None
+    dict_stat= {}
     if df_services is not None:
-        df_g_services = group_services(df_services, freq_threshold)
-    return df_g_services, df_g_LP, df_g_RM
+        df_g_services, total_source_positions, total_positions_ge, total_positions_less, total_proc_positions = group_services_02(df_services, freq_threshold)
+        dict_stat['Услуги'] = {}
+        dict_stat['Услуги']['1. Порог частоты'] = freq_threshold
+        dict_stat['Услуги']['2. Исходных позиций'] = total_source_positions
+        dict_stat['Услуги']['3. Позиций >= порога'] = total_positions_ge
+        dict_stat['Услуги']['4. Позиций < порога'] = total_positions_less
+        dict_stat['Услуги']['5. Итоговых позиций'] = total_proc_positions
+    return df_g_services, df_g_LP, df_g_RM, dict_stat
+
 def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
                         fn_check_file1, cmp_cols_file_01,
                         fn_smnn_pickle, cmp_sections,
@@ -511,7 +345,7 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
     if df_LP is not None: display(df_LP.head(2))
     if df_RM is not None: display(df_RM.head(2))
 
-    df_g_services, df_g_LP, df_g_RM = group_items(df_services, df_LP, df_RM, freq_threshold)
+    df_g_services, df_g_LP, df_g_RM, dict_stat = group_items(df_services, df_LP, df_RM, freq_threshold)
     df_g_lst, sheet_names_lst, sheet_names_g_lst = [], [], []
     if df_g_services is not None:
         df_g_lst.append(df_g_services)
@@ -528,19 +362,33 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
     str_date = form_str_date ()
     fn_tk = 'groupped_tk_' + str_date + '.xlsx'
     fn_tk = f"groupped_tk_{profile}_{tk_code}.xlsx"
-    fn_save = save_df_lst_to_excel(df_g_lst, sheet_names_g_lst, data_processed_dir, fn_tk)
+
+    # fn_save = save_df_lst_to_excel(df_g_lst, sheet_names_g_lst, data_processed_dir, fn_tk)
+    # fn_save = save_df_lst_to_excel(df_g_lst, sheet_names_lst, data_processed_dir, fn_tk)
+    fn_save = f"groupped_tk_{profile}_{tk_code}_{form_str_date()}.xlsx"
     sections = ['Услуги', 'ЛП', 'РМ']
     format_cols = [
         [30,15,30, 30,30, 15,30, 20,20],
         [],
         [],
     ]
-    for i_sh, sheet_name in enumerate(sheet_names_g_lst):
-        if i_sh==0:
-            add_sheet_to_excel_from_df(df_g_lst[i_sh], sheet_name,  data_source_dir, fn_check_file1, data_processed_dir, fn_save, index=False)
-        else:
-            add_sheet_to_excel_from_df(df_g_lst[i_sh], sheet_name,  data_processed_dir, fn_save, data_processed_dir, fn_save, index=False)
+
+    wb = openpyxl.load_workbook(os.path.join(data_source_dir, fn_check_file1))
+    wb.save(os.path.join(data_processed_dir, fn_save))
+    for section in sections:
+        rename_sheet(data_processed_dir, fn_save, section, section + '_дет')
+
+    #for i_sh, sheet_name in enumerate(sheet_names_g_lst):
+    for i_sh, sheet_name in enumerate(sheet_names_lst):
+        #if i_sh==0:
+        #    add_sheet_to_excel_from_df(df_g_lst[i_sh], sheet_name,  data_source_dir, fn_check_file1, data_processed_dir, fn_save, index=False)
+        # else:
+        add_sheet_to_excel_from_df(df_g_lst[i_sh], sheet_name,  data_processed_dir, fn_save, data_processed_dir, fn_save, index=False)
         format_excel_sheet_cols(data_processed_dir, fn_save, format_cols[sections.index(sheet_names_lst[i_sh])], sheet_name=sheet_name)
+    df_dict_stat = pd.DataFrame(dict_stat).reset_index().rename(columns={'index' : 'Показатели'})
+    display(df_dict_stat)
+    add_sheet_to_excel_from_df(df_dict_stat, 'Stat',  data_processed_dir, fn_save, data_processed_dir, fn_save, index=False)
+    format_excel_sheet_cols(data_processed_dir, fn_save, [30, 10, 10, 10], sheet_name='Stat')
 
     logger.info(f"Файл '{fn_save}' сохранен в директорию '{data_processed_dir}'")
     return df_g_services, df_g_LP, df_g_RM
