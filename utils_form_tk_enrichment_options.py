@@ -260,7 +260,8 @@ def preprocess_tkbd_options(
     tk_cols = [tk_serv_cols, tk_lp_cols, tk_rm_cols]
     tk_cols_short = [tk_serv_cols_short, tk_lp_cols_short, tk_rm_cols_short]
     # upload_files_services()
-    df_services_MGFOMS, df_services_804n, smnn_list_df, mean_uet_df = load_check_dictionaries_services(supp_dict_dir, fn_smnn_pickle)
+    # df_services_MGFOMS, df_services_804n, smnn_list_df, mean_uet_df = load_check_dictionaries_services(supp_dict_dir, fn_smnn_pickle)
+    df_services_MGFOMS, df_services_804n, smnn_list_df = load_check_dictionaries_services(supp_dict_dir, fn_smnn_pickle)
 
 
     # df_services, df_LP, df_RM = read_tkbd_options(path_tkbd_source, fn_check_file1, cmp_sections)
