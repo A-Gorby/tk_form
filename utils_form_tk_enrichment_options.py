@@ -20,7 +20,7 @@ import pickle
 
 from utils_common import np_unique_nan
 from utils_io import save_df_lst_to_excel, save_df_to_excel, format_excel_sheet_cols
-# from utils_io import save_df_lst_to_excel, save_df_to_excel
+# from utils_io import save_df_lst_to_excel, save_df_to_excel, rename_sheet
 from utils_io import logger #, restore_df_from_pickle
 
 if len(logger.handlers) > 1:
@@ -260,7 +260,7 @@ def preprocess_tkbd_options(
     tk_cols = [tk_serv_cols, tk_lp_cols, tk_rm_cols]
     tk_cols_short = [tk_serv_cols_short, tk_lp_cols_short, tk_rm_cols_short]
     # upload_files_services()
-    df_services_MGFOMS, df_services_804n, smnn_list_df = load_check_dictionaries_services(supp_dict_dir, fn_smnn_pickle)
+    df_services_MGFOMS, df_services_804n, smnn_list_df, mean_uet_df = load_check_dictionaries_services(supp_dict_dir, fn_smnn_pickle)
 
 
     # df_services, df_LP, df_RM = read_tkbd_options(path_tkbd_source, fn_check_file1, cmp_sections)

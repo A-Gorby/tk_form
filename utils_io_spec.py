@@ -11,7 +11,8 @@ if len(logger.handlers) > 1:
     from utils_io import logger
 
 def upload_files_services(
-  links = [('Коды МГФОМС и 804н.xlsx', 'https://disk.yandex.ru/i/lX1fVnK1J7_hfg', ('МГФОМС', '804н'))], 
+  links = [('Коды МГФОМС и 804н.xlsx', 'https://disk.yandex.ru/i/lX1fVnK1J7_hfg', ('МГФОМС', '804н')),
+  ('services_mean_uet_2023_06_26.xlsx', 'https://disk.yandex.ru/i/ydtTmTb-z_tstQ') ],
   supp_dict_dir = '/content/data/supp_dict'):
     base_url = 'https://cloud-api.yandex.net/v1/disk/public/resources/download?'
     # public_key = link #'https://yadi.sk/d/UJ8VMK2Y6bJH7A'  # Сюда вписываете вашу ссылку
@@ -63,9 +64,13 @@ def load_check_dictionaries_services(path_supp_dicts, fn_smnn_pickle):
     logger.info(f"Загружен справочник 'Услуги по приказу 804н': {str(df_services_804n.shape)}")
 
     # fn_pickle = 'serv_name_embeddings.pk1'
-    # serv_name_embeddings = restore_df_from_pickle(path_supp_dicts, fn_pickle) 
+    # serv_name_embeddings = restore_df_from_pickle(path_supp_dicts, fn_pickle)
     fn_pickle = 'smnn_list_df_esklp_active_20230321_2023_03_24_1238.pickle'
     fn_pickle = fn_smnn_pickle
     smnn_list_df = restore_df_from_pickle(path_supp_dicts, fn_pickle)
     
-    return df_services_MGFOMS, df_services_804n, smnn_list_df
+    fn = 'services_mean_uet_2023_06_26.xlsx'
+    mean_uet_df = pd.read_excel(os.path.join(path_supp_dicts, fn))
+    logger.info(f"Загружен справочник 'Усредненные УЕТ услуг': {str(mean_uet_df.shape)}")
+
+    return df_services_MGFOMS, df_services_804n, smnn_list_df, mean_uet_df
