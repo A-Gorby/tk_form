@@ -240,6 +240,7 @@ def group_services_02(df_services, freq_threshold, group_code_col ='Код ти�
 
     code_col = 'Код услуги по Номенклатуре медицинских услуг (Приказ МЗ № 804н)'
     name_col = 'Наименование услуги по Номенклатуре медицинских услуг (Приказ МЗ №804н)'
+
     freq_col = 'Усредненная частота предоставления'
     multi_col = 'Усредненная кратность применения'
     head_cols = ['Профиль', 'Код ТК', 'Наименование ТК', 'Модель пациента', 'Файл Excel']
@@ -303,6 +304,55 @@ def group_services_02(df_services, freq_threshold, group_code_col ='Код ти�
 
     return df_g_services, total_source_positions, total_positions_ge, total_positions_less, total_proc_positions
 
+
+def append_serv_uet(df_g_services, supp_dict_dir, fn_serv_uet, sh_name_serv_uet):
+    serv_uet_df = pd.read_excel(os.path.join(supp_dict_dir, fn_serv_uet), sheet_name=sh_name_serv_uet)
+    logger.info(f"Загружен справочник 'УЕТ услуг': {str(serv_uet_df.shape)}")
+
+    r_code_col = 'Код услуги в Номенклатуре медицинских услуг (Приказ 804н)'
+    r_name_col = 'Наименование медицинской услуги в Номенклатуре медицинских услуг (Приказ 804н)(ред. от 24.09.2020, с изм. от 26.10.2022)'
+    code_col = 'Код услуги по Номенклатуре медицинских услуг (Приказ МЗ № 804н)'
+    name_col = 'Наименование услуги по Номенклатуре медицинских услуг (Приказ МЗ №804н)'
+    uet1_col = 'УЕТ1_итог_взрослые'
+    uet2_col = 'УЕТ2_итог_взрослые'
+    uet_source_col = 'Источник_УЕТ_взрослые'
+    #print(serv_uet_df.columns)
+
+    on_cols = [code_col] #, name_col]
+    on_cols_r = [r_code_col] #, r_name_col]
+    df_g_services = df_g_services.merge(
+        serv_uet_df[on_cols_r + [uet1_col, uet2_col, uet_source_col]],
+        how='left',
+        left_on = on_cols, right_on = on_cols_r,
+        suffixes = ('', '_y'))
+    df_g_services.drop(columns=on_cols_r, inplace=True)
+
+    # mask = df_g_services[code_col].str.contains('.AA') | df_g_services[code_col].str.contains('.BBB')
+    # df_g_services['Код Типа'] = df_g_services[code_col].apply(lambda x: x.split('.')[0])
+    # for i_row, row in tqdm(df_g_services[mask].iterrows(), total=df_g_services[mask].shape[0]):
+    #     serv_type_code = row['Код Типа']
+    #     values = serv_uet_df[(serv_uet_df['Код Типа'] == serv_type_code) & (serv_uet_df[uet_source_col]=='Среднее по Типу')] [[uet1_col, uet2_col, uet_source_col]].values
+    #     if len(values) > 0:
+    #         uet1_mean, uet2_mean, uet_source = values[0]
+    #     else: uet1_mean, uet2_mean, uet_source = None, None, None
+    #     print(serv_type_code, uet1_mean, uet2_mean, uet_source)
+    #     df_g_services.loc[i_row, [uet1_col, uet2_col, uet_source_col]] = [uet1_mean, uet2_mean, uet_source]
+
+    #df_g_services.drop(columns= ['Код Типа'], inplace=True)
+
+    # df_g_services['Код Типа'] = df_g_services[code_col].apply(lambda x: x.split('.')[0])
+    # df_g_services[mask] = df_g_services[mask].merge(
+    #       serv_uet_df[serv_uet_df[uet_source_col]=='Среднее по Типу'] [['Код Типа', uet1_col, uet2_col]],
+    #       how='left',
+    #       on = 'Код Типа', suffixes = ('', '_y'))
+    # display(df_g_services[mask])
+    # print(df_g_services.columns)
+    # df_g_services.loc[mask, [uet1_col, uet2_col]] = df_g_services.loc[mask, [uet1_col + '_y', uet2_col + '_y']].apply(lambda x: x, axis=1)
+    # df_g_services.drop(columns= ['Код Типа', uet1_col + '_y', uet2_col + '_y'], inplace=True) # on_cols_r +
+
+
+    return df_g_services
+
 def group_items(df_services, df_LP, df_RM,
         freq_threshold,
 ):
@@ -310,6 +360,8 @@ def group_items(df_services, df_LP, df_RM,
     dict_stat= {}
     if df_services is not None:
         df_g_services, total_source_positions, total_positions_ge, total_positions_less, total_proc_positions = group_services_02(df_services, freq_threshold)
+        # df_g_services = add_service_uet(df_g_services)
+
         dict_stat['Услуги'] = {}
         dict_stat['Услуги']['1. Порог частоты'] = freq_threshold
         dict_stat['Услуги']['2. Исходных позиций'] = total_source_positions
@@ -324,6 +376,8 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
                         profile='profile_test', tk_code=7777777, tk_name='tk_test',
                         models = ['Факт', ],
                         freq_threshold=0.05,
+                        fn_serv_uet = 'services_uet_w_mean_2023_06_27_1311.xlsx', 
+                        sh_name_serv_uet = 'С_усредненными_УЕТ',
 
                         ):
 
@@ -340,6 +394,7 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
                 profile, tk_code, tk_name,
                 models,
                 save_enriched=False,
+                
                 )
     if df_services is not None: display(df_services.head(2))
     if df_LP is not None: display(df_LP.head(2))
@@ -348,6 +403,7 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
     df_g_services, df_g_LP, df_g_RM, dict_stat = group_items(df_services, df_LP, df_RM, freq_threshold)
     df_g_lst, sheet_names_lst, sheet_names_g_lst = [], [], []
     if df_g_services is not None:
+        df_g_services = append_serv_uet(df_g_services, supp_dict_dir, fn_serv_uet, sh_name_serv_uet)
         df_g_lst.append(df_g_services)
         sheet_names_lst.append(f"Услуги")
         sheet_names_g_lst.append(f"Услуги_грп_{str(freq_threshold)}")
@@ -368,7 +424,7 @@ def form_tk_options( data_source_dir, data_processed_dir, supp_dict_dir,
     fn_save = f"groupped_tk_{profile}_{tk_code}_{form_str_date()}.xlsx"
     sections = ['Услуги', 'ЛП', 'РМ']
     format_cols = [
-        [30,15,30, 30,30, 15,30, 20,20],
+        [30,15,30, 30,30, 15,30, 20,20, 20,20, 30],
         [],
         [],
     ]
